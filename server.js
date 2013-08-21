@@ -101,11 +101,14 @@ app.use(function(req, res, next) {
 
   var upstreamReq = request.get({
       url: ORIGIN + req.originalUrl,
+      encoding: null,
       headers: populateHeaders(req.headers)
-    }).on("error", function(err) {
-      console.warn("Failed while making upstream request:", err);
-      return res.send(503);
-    }).on("response", function(rsp) {
+    }, function(err, rsp, body) {
+      if (err) {
+        console.warn("Failed while making upstream request:", err);
+        return res.send(503);
+      }
+
       if (rsp.statusCode === 200) {
         // copy the headers over
         Object.keys(rsp.headers).forEach(function(k) {
@@ -113,7 +116,7 @@ app.use(function(req, res, next) {
         });
 
         // return it to the client
-        rsp.pipe(res);
+        res.send(body);
 
         // only write the file if it's cacheable
         if (isCacheable(rsp) && req.originalUrl !== '/') {
@@ -122,6 +125,7 @@ app.use(function(req, res, next) {
           // pipe it into S3
           var s3Put = request.put({
             url: util.format("http://s3.amazonaws.com/%s%s", S3_BUCKET, req.originalUrl),
+            body: body,
             aws: {
               key: AWS_ACCESS_KEY_ID,
               secret: AWS_SECRET_ACCESS_KEY
@@ -140,8 +144,6 @@ app.use(function(req, res, next) {
 
             // console.log("%s successfully uploaded to %s.", req.originalUrl, S3_BUCKET);
           });
-
-          rsp.pipe(s3Put);
         }
 
         return;
