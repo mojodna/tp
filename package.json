@@ -1,0 +1,18 @@
+{
+  "name": "tp",
+  "version": "0.0.0",
+  "description": "A teeing reverse proxy",
+  "author": "Seth Fitzsimmons <seth@mojodna.net>",
+  "license": "BSD",
+  "dependencies": {
+    "metricsd": "~0.2.2",
+    "require-env": "0.0.3",
+    "request": "~2.27.0",
+    "express": "~3.3.5",
+    "toobusy": "~0.2.3"
+  },
+  "engines": {
+    "node": "~0.10.15",
+    "npm": "~1.3.5"
+  }
+}
