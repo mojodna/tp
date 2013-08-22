@@ -9,7 +9,12 @@
     "require-env": "0.0.3",
     "request": "~2.27.0",
     "express": "~3.3.5",
-    "toobusy": "~0.2.3"
+    "toobusy": "~0.2.3",
+    "knox": "~0.8.6",
+    "async": "~0.2.9"
+  },
+  "bin": {
+    "tp-purge": "./bin/purge.js"
   },
   "engines": {
     "node": "~0.10.15",
