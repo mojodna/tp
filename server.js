@@ -115,6 +115,10 @@ app.use(function(req, res, next) {
           res.set(k, rsp.headers[k]);
         });
 
+        if (CACHE_EVERYTHING) {
+          res.set("Cache-Control", "public,max-age=2592000");
+        }
+
         // return it to the client
         res.send(body);
 
