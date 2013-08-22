@@ -69,7 +69,7 @@ var populateS3Headers = function(sourceHeaders) {
   };
 
   if (CACHE_EVERYTHING) {
-    headers["Cache-Control"] = "public,max-age=2592000";
+    headers["Cache-Control"] = "public,max-age=300";
   } else if (sourceHeaders["cache-control"]) {
     headers["Cache-Control"] = sourceHeaders["cache-control"];
   }
@@ -116,7 +116,7 @@ app.use(function(req, res, next) {
         });
 
         if (CACHE_EVERYTHING) {
-          res.set("Cache-Control", "public,max-age=2592000");
+          res.set("Cache-Control", "public,max-age=300");
         }
 
         // return it to the client
