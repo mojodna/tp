@@ -68,10 +68,10 @@ var populateS3Headers = function(sourceHeaders) {
     "Content-Type": sourceHeaders["content-type"]
   };
 
-  if (sourceHeaders["cache-control"]) {
-    headers["Cache-Control"] = sourceHeaders["cache-control"];
-  } else if (CACHE_EVERYTHING) {
+  if (CACHE_EVERYTHING) {
     headers["Cache-Control"] = "public,max-age=2592000";
+  } else if (sourceHeaders["cache-control"]) {
+    headers["Cache-Control"] = sourceHeaders["cache-control"];
   }
 
   return headers;
