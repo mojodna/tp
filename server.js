@@ -79,9 +79,62 @@ var populateS3Headers = function(sourceHeaders) {
 
 var isCacheable = function(rsp) {
   // (max-age=0 probably means that the tile is corrupt)
-  return CACHE_EVERYTHING ||
-         (rsp.headers["cache-control"] &&
-            rsp.headers["cache-control"].indexOf("max-age=0") < 0);
+  return rsp.statusCode === 200 &&
+    (CACHE_EVERYTHING ||
+      (rsp.headers["cache-control"] &&
+        rsp.headers["cache-control"].indexOf("max-age=0") < 0));
+};
+
+var fetchAndStore = function(url, headers, callback) {
+  // TODO use ultrafuge's getTile trick with an LRU cache to prevent thundering
+  // herds
+  return request.get({
+    url: ORIGIN + req.originalUrl,
+    encoding: null,
+    headers: populateHeaders(req.headers)
+  }, function(err, rsp, body) {
+    if (err) {
+      console.warn("Failed while making upstream request:", err);
+      return callback(err);
+    }
+
+    // pass data before storing in S3
+    callback(err, rsp, body);
+
+    // only write the file if it's cacheable
+    if (isCacheable(rsp) && req.originalUrl !== '/') {
+      metrics.mark("store");
+
+      // pipe it into S3
+      var s3Put = request.put({
+        url: util.format("http://s3.amazonaws.com/%s%s", S3_BUCKET, req.originalUrl),
+        body: body,
+        aws: {
+          key: AWS_ACCESS_KEY_ID,
+          secret: AWS_SECRET_ACCESS_KEY
+        },
+        headers: populateS3Headers(rsp.headers)
+      }, function(err, rsp, body) {
+        if (err || rsp.statusCode !== 200) {
+          console.warn("Failed while writing %s to S3:", req.originalUrl, err || rsp.statusCode);
+
+          if (body) {
+            console.warn(body);
+          }
+
+          return;
+        }
+
+        // console.log("%s successfully uploaded to %s.", req.originalUrl, S3_BUCKET);
+      });
+
+      return;
+    }
+
+    if (rsp.statusCode !== 200) {
+      console.log("Failed upstream request: %d: %s", rsp.statusCode, ORIGIN + req.originalUrl);
+    }
+  });
 };
 
 //
@@ -99,67 +152,30 @@ app.use(function(req, res, next) {
     metrics.mark("busy");
   }
 
-  var upstreamReq = request.get({
-      url: ORIGIN + req.originalUrl,
-      encoding: null,
-      headers: populateHeaders(req.headers)
-    }, function(err, rsp, body) {
-      if (err) {
-        console.warn("Failed while making upstream request:", err);
-        return res.send(503);
-      }
-
-      if (rsp.statusCode === 200) {
-        // copy the headers over
-        Object.keys(rsp.headers).forEach(function(k) {
-          res.set(k, rsp.headers[k]);
-        });
-
-        if (CACHE_EVERYTHING) {
-          res.set("Cache-Control", "public,max-age=300");
-        }
-
-        // return it to the client
-        res.send(body);
-
-        // only write the file if it's cacheable
-        if (isCacheable(rsp) && req.originalUrl !== '/') {
-          metrics.mark("store");
-
-          // pipe it into S3
-          var s3Put = request.put({
-            url: util.format("http://s3.amazonaws.com/%s%s", S3_BUCKET, req.originalUrl),
-            body: body,
-            aws: {
-              key: AWS_ACCESS_KEY_ID,
-              secret: AWS_SECRET_ACCESS_KEY
-            },
-            headers: populateS3Headers(rsp.headers)
-          }, function(err, rsp, body) {
-            if (err || rsp.statusCode !== 200) {
-              console.warn("Failed while writing %s to S3:", req.originalUrl, err || rsp.statusCode);
-
-              if (body) {
-                console.warn(body);
-              }
-
-              return;
-            }
-
-            // console.log("%s successfully uploaded to %s.", req.originalUrl, S3_BUCKET);
-          });
-        }
-
-        return;
-      } else if (rsp.statusCode === 404) {
-        return res.send(404);
-      }
-
-      console.log("Failed upstream request: %d: %s", rsp.statusCode, ORIGIN + req.originalUrl);
-
-      // if we got here, neither request succeeded
+  return fetchAndStore(req.originalUrl, req.headers, function(err, rsp, body) {
+    if (err) {
       return res.send(503);
-    });
+    }
+
+    if (rsp.statusCode === 200) {
+      // copy the headers over
+      Object.keys(rsp.headers).forEach(function(k) {
+        res.set(k, rsp.headers[k]);
+      });
+
+      if (CACHE_EVERYTHING) {
+        res.set("Cache-Control", "public,max-age=300");
+      }
+
+      // return it to the client
+      return res.send(body);
+    } else if (rsp.statusCode === 404) {
+      return res.send(404);
+    }
+
+    // if we got here, neither request succeeded
+    return res.send(503);
+  });
 });
 
 // start the service
