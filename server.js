@@ -18,22 +18,28 @@ var app = express(),
 // Configuration
 //
 
-var AWS_ACCESS_KEY_ID = env.require("AWS_ACCESS_KEY_ID"),
-    AWS_SECRET_ACCESS_KEY = env.require("AWS_SECRET_ACCESS_KEY"),
-    S3_BUCKET = env.require("S3_BUCKET"),
-    ORIGIN = env.require("ORIGIN"),
-    CACHE_EVERYTHING = !!process.env.CACHE_EVERYTHING;
+var tp = require("./lib")({
+  ORIGIN: env.require("ORIGIN"),
+  AWS_ACCESS_KEY_ID: env.require("AWS_ACCESS_KEY_ID"),
+  AWS_SECRET_ACCESS_KEY: env.require("AWS_SECRET_ACCESS_KEY"),
+  S3_BUCKET: env.require("S3_BUCKET"),
+  S3_URL: process.env.S3_URL,
+  CACHE_EVERYTHING: process.env.CACHE_EVERYTHING
+});
+
+http.globalAgent.maxSockets = 200;
 
 
+//
 // Express configuration
+//
+
 app.disable("x-powered-by");
 app.use(express.responseTime());
 
 app.configure("development", function() {
   app.use(express.logger());
 });
-
-http.globalAgent.maxSockets = 200;
 
 
 //
@@ -44,98 +50,6 @@ setInterval(function() {
   metrics.updateHistogram("lag", toobusy.lag());
 }, 1000).unref();
 
-//
-// Utility functions
-//
-
-var populateHeaders = function(sourceHeaders) {
-  var headers = {};
-
-  if (sourceHeaders["user-agent"]) {
-    headers["User-Agent"] = sourceHeaders["user-agent"];
-  }
-
-  if (sourceHeaders["referer"]) {
-    headers["Referer"] = sourceHeaders["referer"];
-  }
-
-  return headers;
-};
-
-var populateS3Headers = function(sourceHeaders) {
-  var headers = {
-    "x-amz-acl": "public-read",
-    "Content-Type": sourceHeaders["content-type"]
-  };
-
-  if (CACHE_EVERYTHING) {
-    headers["Cache-Control"] = "public,max-age=300";
-  } else if (sourceHeaders["cache-control"]) {
-    headers["Cache-Control"] = sourceHeaders["cache-control"];
-  }
-
-  return headers;
-};
-
-var isCacheable = function(rsp) {
-  // (max-age=0 probably means that the tile is corrupt)
-  return rsp.statusCode === 200 &&
-    (CACHE_EVERYTHING ||
-      (rsp.headers["cache-control"] &&
-        rsp.headers["cache-control"].indexOf("max-age=0") < 0));
-};
-
-var fetchAndStore = function(url, headers, callback) {
-  // TODO use ultrafuge's getTile trick with an LRU cache to prevent thundering
-  // herds
-  return request.get({
-    url: ORIGIN + req.originalUrl,
-    encoding: null,
-    headers: populateHeaders(req.headers)
-  }, function(err, rsp, body) {
-    if (err) {
-      console.warn("Failed while making upstream request:", err);
-      return callback(err);
-    }
-
-    // pass data before storing in S3
-    callback(err, rsp, body);
-
-    // only write the file if it's cacheable
-    if (isCacheable(rsp) && req.originalUrl !== '/') {
-      metrics.mark("store");
-
-      // pipe it into S3
-      var s3Put = request.put({
-        url: util.format("http://s3.amazonaws.com/%s%s", S3_BUCKET, req.originalUrl),
-        body: body,
-        aws: {
-          key: AWS_ACCESS_KEY_ID,
-          secret: AWS_SECRET_ACCESS_KEY
-        },
-        headers: populateS3Headers(rsp.headers)
-      }, function(err, rsp, body) {
-        if (err || rsp.statusCode !== 200) {
-          console.warn("Failed while writing %s to S3:", req.originalUrl, err || rsp.statusCode);
-
-          if (body) {
-            console.warn(body);
-          }
-
-          return;
-        }
-
-        // console.log("%s successfully uploaded to %s.", req.originalUrl, S3_BUCKET);
-      });
-
-      return;
-    }
-
-    if (rsp.statusCode !== 200) {
-      console.log("Failed upstream request: %d: %s", rsp.statusCode, ORIGIN + req.originalUrl);
-    }
-  });
-};
 
 //
 // Routes
@@ -152,7 +66,7 @@ app.use(function(req, res, next) {
     metrics.mark("busy");
   }
 
-  return fetchAndStore(req.originalUrl, req.headers, function(err, rsp, body) {
+  return tp.fetchAndStore(req.originalUrl, req.headers, function(err, rsp, body) {
     if (err) {
       return res.send(503);
     }
@@ -162,10 +76,6 @@ app.use(function(req, res, next) {
       Object.keys(rsp.headers).forEach(function(k) {
         res.set(k, rsp.headers[k]);
       });
-
-      if (CACHE_EVERYTHING) {
-        res.set("Cache-Control", "public,max-age=300");
-      }
 
       // return it to the client
       return res.send(body);

@@ -21,6 +21,7 @@ Varnish is purged.
 
 * `ORIGIN` - Origin URL prefix
 * `S3_BUCKET` - Target S3 bucket
+* `S3_URL` - S3 URL, defaults to http://s3.amazonaws.com
 * `AWS_ACCESS_KEY_ID` - AWS Access Key ID
 * `AWS_SECRET_ACCESS_KEY` - AWS Secret Access Key
 * `CACHE_EVERYTHING` - treat everything as cacheable (optional), regardless of

@@ -13,8 +13,14 @@
     "knox": "~0.8.6",
     "async": "~0.2.9"
   },
+  "devDependencies": {
+    "mocha": "~1.13.0"
+  },
   "bin": {
     "tp-purge": "./bin/purge.js"
+  },
+  "scripts": {
+    "test": "node_modules/.bin/mocha"
   },
   "engines": {
     "node": "~0.10.15",
