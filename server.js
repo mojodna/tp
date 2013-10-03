@@ -68,6 +68,7 @@ app.use(function(req, res, next) {
 
   return tp.fetchAndStore(req.originalUrl, req.headers, function(err, rsp, body) {
     if (err) {
+      metrics.mark("error");
       return res.send(503);
     }
 
@@ -84,6 +85,7 @@ app.use(function(req, res, next) {
     }
 
     // if we got here, neither request succeeded
+    metrics.mark("error");
     return res.send(503);
   });
 });
