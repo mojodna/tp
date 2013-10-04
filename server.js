@@ -1,6 +1,7 @@
 "use strict";
 
 var http = require("http"),
+    url = require("url"),
     util = require("util");
 
 var env = require("require-env"),
@@ -18,8 +19,10 @@ var app = express(),
 // Configuration
 //
 
+var ORIGIN = env.require("ORIGIN");
+
 var tp = require("./lib")({
-  ORIGIN: env.require("ORIGIN"),
+  ORIGIN: ORIGIN,
   AWS_ACCESS_KEY_ID: env.require("AWS_ACCESS_KEY_ID"),
   AWS_SECRET_ACCESS_KEY: env.require("AWS_SECRET_ACCESS_KEY"),
   S3_BUCKET: env.require("S3_BUCKET"),
@@ -66,7 +69,16 @@ app.use(function(req, res, next) {
     metrics.mark("busy");
   }
 
-  return tp.fetchAndStore(req.originalUrl, req.headers, function(err, rsp, body) {
+  var path = req.originalUrl;
+
+  if (path === "/" ||
+      url.parse(path).query) {
+
+    metrics.mark("pass");
+    return req.pipe(request(ORIGIN + path)).pipe(res);
+  }
+
+  return tp.fetchAndStore(path, req.headers, function(err, rsp, body) {
     if (err) {
       metrics.mark("error");
       return res.send(503);
