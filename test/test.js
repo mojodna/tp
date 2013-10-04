@@ -153,7 +153,7 @@ describe("#fetchAndStore", function() {
 
     s3.put("/test/resource", expects(function(req, res) {
       check(function() {
-        assert.equal("public,max-age=300", req.headers["cache-control"]);
+        assert.equal("public,max-age=3600", req.headers["cache-control"]);
       });
 
       return res.send(200);
