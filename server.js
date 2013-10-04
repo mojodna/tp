@@ -27,7 +27,7 @@ var tp = require("./lib")({
   CACHE_EVERYTHING: process.env.CACHE_EVERYTHING
 });
 
-http.globalAgent.maxSockets = 200;
+http.globalAgent.maxSockets = Infinity;
 
 
 //
