@@ -7,8 +7,10 @@ var async = require("async"),
 
 process.env.DISABLE_METRICS = true;
 
+var ORIGIN = "http://localhost:8080";
+
 var siphon = require("../lib")({
-  ORIGIN: "http://localhost:8080",
+  ORIGIN: ORIGIN,
   AWS_ACCESS_KEY_ID: "x",
   AWS_SECRET_ACCESS_KEY: "x",
   S3_BUCKET: "test",
@@ -135,7 +137,7 @@ describe("#fetchAndStore", function() {
       "user-agent": userAgent
     };
 
-    siphon.fetchAndStore("/resource", headers, expects(function(err, rsp, body) {
+    siphon.fetchAndStore(ORIGIN + "/resource", "/resource", headers, expects(function(err, rsp, body) {
       assert.equal(payload, body);
       assert.ok(rsp.headers["content-type"].indexOf(contentType) >= 0);
     }));
@@ -159,7 +161,7 @@ describe("#fetchAndStore", function() {
       return res.send(200);
     }));
 
-    siphon.fetchAndStore("/resource", {}, expects(function(err, rsp, body) {
+    siphon.fetchAndStore(ORIGIN + "/resource", "/resource", {}, expects(function(err, rsp, body) {
       assert.equal(cacheControl, rsp.headers["cache-control"]);
     }));
   });
@@ -181,7 +183,7 @@ describe("#fetchAndStore", function() {
       res.send(500);
     });
 
-    siphon.fetchAndStore("/resource", {}, expects(function(err, rsp, body) {
+    siphon.fetchAndStore(ORIGIN + "/resource", "/resource", {}, expects(function(err, rsp, body) {
       assert.equal(statusCode, rsp.statusCode);
     }));
   });
@@ -212,7 +214,7 @@ describe("#fetchAndStore", function() {
       res.send(500);
     });
 
-    siphon.fetchAndStore("/resource", {}, expects(function(err, rsp, body) {
+    siphon.fetchAndStore(ORIGIN + "/resource", "/resource", {}, expects(function(err, rsp, body) {
       assert.equal(payload, body);
     }));
   });
