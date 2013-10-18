@@ -14,7 +14,7 @@ var env = require("require-env"),
 
 var app = express(),
     metrics = metricsd({
-      log: !process.env.DISABLE_METRICS
+      log: !!process.env.ENABLE_METRICS
     });
 
 //
