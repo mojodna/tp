@@ -21,10 +21,7 @@ var app = express(),
 // Configuration
 //
 
-var ORIGIN = env.require("ORIGIN");
-
 var tp = require("../lib")({
-  ORIGIN: ORIGIN,
   AWS_ACCESS_KEY_ID: env.require("AWS_ACCESS_KEY_ID"),
   AWS_SECRET_ACCESS_KEY: env.require("AWS_SECRET_ACCESS_KEY"),
   S3_BUCKET: env.require("S3_BUCKET"),
@@ -49,13 +46,15 @@ if (process.env.TP_CONFIG) {
   }
 }
 
-var proxy = function(origin) {
-  return function(req, res) {
-    if (toobusy()) {
-      // TODO extract the throttling code from sandwich-maker
-      metrics.mark("busy");
-    }
+var proxy = function(options) {
+  var origin = options.origin,
+      pathPrefix = options.pathPrefix || "";
 
+  if (pathPrefix && pathPrefix.indexOf("/") !== 0) {
+    pathPrefix = "/" + pathPrefix;
+  }
+
+  return function(req, res) {
     var path = req.url;
 
     if (path === "/" ||
@@ -65,7 +64,10 @@ var proxy = function(origin) {
       return req.pipe(request(origin + path)).pipe(res);
     }
 
-    return tp.fetchAndStore(origin + path, req.originalUrl, req.headers, function(err, rsp, body) {
+    return tp.fetchAndStore(origin + path,
+                            pathPrefix + req.originalUrl,
+                            req.headers,
+                            function(err, rsp, body) {
       if (err) {
         metrics.mark("error");
         return res.send(503);
@@ -89,14 +91,6 @@ var proxy = function(origin) {
     });
   };
 };
-
-Object.keys(config).forEach(function(path) {
-  var origin = config[path];
-
-  console.log("Registering proxy for %s", path);
-  app.use(path, proxy(config[path]));
-});
-
 
 //
 // Express configuration
@@ -123,48 +117,30 @@ setInterval(function() {
 // Routes
 //
 
-app.get("/favicon.ico", function(req, res) {
-  res.send(404);
-});
-
-// catch-all route
 app.use(function(req, res, next) {
   if (toobusy()) {
     // TODO extract the throttling code from sandwich-maker
     metrics.mark("busy");
   }
 
-  var path = req.originalUrl;
+  return next();
+});
 
-  if (path === "/" ||
-      url.parse(path).query) {
+app.get("/favicon.ico", function(req, res) {
+  res.send(404);
+});
 
-    metrics.mark("pass");
-    return req.pipe(request(ORIGIN + path)).pipe(res);
-  }
+// proxy routes
+Object.keys(config).forEach(function(path) {
+  var origin = config[path];
 
-  return tp.fetchAndStore(ORIGIN + path, path, req.headers, function(err, rsp, body) {
-    if (err) {
-      metrics.mark("error");
-      return res.send(503);
-    }
+  console.log("Registering proxy for %s", path);
+  app.use(path, proxy(config[path]));
+});
 
-    if (rsp.statusCode === 200) {
-      // copy the headers over
-      Object.keys(rsp.headers).forEach(function(k) {
-        res.set(k, rsp.headers[k]);
-      });
-
-      // return it to the client
-      return res.send(body);
-    } else if (rsp.statusCode === 404) {
-      return res.send(404);
-    }
-
-    // if we got here, neither request succeeded
-    metrics.mark("error");
-    return res.send(503);
-  });
+// catch-all route
+app.use(function(req, res, next) {
+  return res.send(404);
 });
 
 // start the service

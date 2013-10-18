@@ -17,9 +17,30 @@ foreman run node bin/purge.js
 It's intended to be used when cached content is being refreshed, *before*
 Varnish is purged.
 
+## Configuration
+
+`tp.json`:
+
+```javascript
+{
+  "/background/": {
+    "origin": "http://background.example.com"
+  },
+  "/features/": {
+    "origin": "http://features.example.com"
+  },
+  "/labels/": {
+    "origin": "http://labels.example.com"
+  },
+  "/": {
+    "origin": "http://default.example.com",
+    "pathPrefix": "default"
+  }
+}
+```
+
 ## Environment Variables
 
-* `ORIGIN` - Origin URL prefix
 * `S3_BUCKET` - Target S3 bucket
 * `S3_URL` - S3 URL, defaults to http://s3.amazonaws.com
 * `AWS_ACCESS_KEY_ID` - AWS Access Key ID
