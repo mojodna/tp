@@ -1,5 +1,7 @@
 "use strict";
 
+// TODO this is out of date--use bin/tp.js instead
+
 var http = require("http"),
     url = require("url"),
     util = require("util");
