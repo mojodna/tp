@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 "use strict";
 
 var async = require("async"),
@@ -10,12 +12,24 @@ var client = knox.createClient({
   bucket: env.require("S3_BUCKET")
 });
 
+var PATH_PREFIX = process.env.PATH_PREFIX || "";
+
+// remove a leading slash if necessary
+if (PATH_PREFIX && PATH_PREFIX.indexOf("/") === 0) {
+  PATH_PREFIX = PATH_PREFIX.slice(1);
+}
+
 var count,
-    deletedKeyCount = 0;
+    deletedKeyCount = 0,
+    marker;
 
 async.doWhilst(
   function(next) {
-    return client.list(function(err, data) {
+    return client.list({
+      // delimiter: "/",
+      marker: marker || "",
+      prefix: PATH_PREFIX
+    }, function(err, data) {
       if (err) {
         return next(err);
       }
@@ -25,8 +39,10 @@ async.doWhilst(
       });
 
       count = keys.length;
+      marker = data.Marker;
 
       return client.deleteMultiple(keys, function(err) {
+        process.stdout.write(".");
         deletedKeyCount += keys.length;
 
         return next(err);
@@ -42,3 +58,6 @@ async.doWhilst(
     console.log("Deleted %d keys.", deletedKeyCount);
   });
 
+setInterval(function() {
+  console.log("Deleted %d keys.", deletedKeyCount);
+}, 10000).unref();
