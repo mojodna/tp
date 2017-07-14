@@ -1,5 +1,5 @@
 {
-  "name": "tp",
+  "name": "@mojodna/tp",
   "version": "0.1.0",
   "description": "A teeing reverse proxy",
   "author": "Seth Fitzsimmons <seth@mojodna.net>",
