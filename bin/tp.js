@@ -9,7 +9,7 @@ var http = require("http"),
 var env = require("require-env"),
     express = require("express"),
     request = require("request"),
-    toobusy = require("toobusy"),
+    toobusy = require("toobusy-js"),
     metricsd = require("metricsd");
 
 var app = express(),
