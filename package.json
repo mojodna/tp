@@ -5,13 +5,13 @@
   "author": "Seth Fitzsimmons <seth@mojodna.net>",
   "license": "BSD",
   "dependencies": {
-    "metricsd": "~0.2.2",
-    "require-env": "0.0.3",
-    "request": "~2.27.0",
+    "async": "~0.2.9",
     "express": "~3.3.5",
-    "toobusy": "~0.2.3",
     "knox": "~0.8.6",
-    "async": "~0.2.9"
+    "metricsd": "~0.2.2",
+    "request": "~2.27.0",
+    "require-env": "0.0.3",
+    "toobusy-js": "^0.5.1"
   },
   "devDependencies": {
     "mocha": "~1.13.0"
@@ -24,6 +24,6 @@
     "test": "node_modules/.bin/mocha"
   },
   "engines": {
-    "node": "~0.10.15"
+    "node": "4.8.4"
   }
 }
